@@ -6,10 +6,13 @@ echo
 echo Resetting database
 
 psql <<SQL
-DROP DATABASE IF EXISTS gleam_epgsql_test;
 CREATE DATABASE gleam_epgsql_test;
+SQL
 
-CREATE TABLE IF NOT EXISTS cats (
+psql -v "ON_ERROR_STOP=1" -d gleam_epgsql_test <<SQL
+DROP TABLE IF EXISTS cats;
+
+CREATE TABLE cats (
   id INTEGER PRIMARY KEY,
   name VARCHAR(50) NOT NULL,
   is_cute boolean NOT NULL DEFAULT true

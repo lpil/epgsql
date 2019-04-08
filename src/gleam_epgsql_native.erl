@@ -2,7 +2,7 @@
 
 -include_lib("epgsql/include/epgsql.hrl").
 
--export([start_link/1, run_query/3]).
+-export([start_link/1, run_query/3, param/1, null/0]).
 
 start_link(Opts) ->
   NewOpts =
@@ -32,3 +32,9 @@ query_error({error, Severity, Code, Codename, Message, Extra}) ->
     codename => Codename,
     message => Message,
     extra => Extra}.
+
+param(X) ->
+  X.
+
+null() ->
+  null.
