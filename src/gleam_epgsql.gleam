@@ -45,18 +45,25 @@ pub enum QueryErrorExtra =
 //     extra = List(QueryErrorExtra),
 //   }
 
+pub enum QueryError =
+  | PgError({
+      severity = Severity,
+      code = String,
+      codename = atom:Atom,
+      message = String,
+      extra = List(QueryErrorExtra),
+    })
+  | IncorrectNumberOfParams({
+      expected = Int,
+      given = Int,
+    })
+
 pub enum ConnectError =
   | InvalidAuthorizationSpecification
   | InvalidPassword
   | UnsupportedAuthMethod(any:Any) // TODO: Refine this Any
   | SaslServerFinal(any:Any)
-  | ConnectQueryError({
-     severity = Severity,
-     code = String,
-     codename = atom:Atom,
-     message = String,
-     extra = List(QueryErrorExtra),
-   })
+  | ConnectQueryError(QueryError)
 
 pub external type Connection;
 
@@ -78,6 +85,8 @@ pub external fn start_link(List(ConnectionOption))
 enum Column =
   | Column(String, atom:Atom, Int, Int, Int)
 
+pub external fn string(String) -> Parameter = "gleam_epgsql_native" "param"
+
 pub external fn bool(Bool) -> Parameter = "gleam_epgsql_native" "param"
 
 pub external fn int(Int) -> Parameter = "gleam_epgsql_native" "param"
@@ -89,16 +98,7 @@ pub external fn null() -> Parameter = "gleam_epgsql_native" "null"
 pub external fn array(List(Parameter)) -> Parameter = "gleam_epgsql_native" "param"
 
 external fn run_query(Connection, String, List(Parameter))
-  -> Result(
-      {List(Column), List(any:Any)},
-      {
-        severity = Severity,
-        code = String,
-        codename = atom:Atom,
-        message = String,
-        extra = List(QueryErrorExtra),
-      }
-    )
+  -> Result({List(Column), List(any:Any)}, QueryError)
   = "gleam_epgsql_native" "run_query"
 
 pub fn query(conn, sql, params) {
@@ -127,7 +127,7 @@ test library {
   |> query(conn, _, [float(2.5)])
   |> expect:equal(_, Ok([any:from({2.5})]))
 
-  let error = {
+  let error = PgError({
     code = "42601",
     codename = atom:create_from_string("syntax_error"),
     message = "syntax error at or near \"syntax\"",
@@ -139,7 +139,7 @@ test library {
       Routine("scanner_yyerror"),
       Severity("ERROR"),
     ],
-  }
+  })
 
   "syntax error"
   |> query(conn, _, [])
@@ -195,7 +195,23 @@ test library {
   |> query(conn, _, [])
   |> expect:equal(_, Ok([any:from({False})]))
 
-  // "UPDATE cats SET is_cute = NOT is_cute WHERE id = 3"
-  // |> query(conn, _, [bool(True)])
-  // |> expect:equal(_, err(some_error))
+  "UPDATE cats SET is_cute = NOT is_cute WHERE id = 3"
+  |> query(conn, _, [string("hi there")])
+  |> expect:equal(_, err(IncorrectNumberOfParams({expected = 0, given = 1})))
+
+  "UPDATE cats SET is_cute = $1 WHERE id = $2"
+  |> query(conn, _, [string("hi there")])
+  |> expect:equal(_, err(IncorrectNumberOfParams({expected = 2, given = 1})))
+
+  "UPDATE cats SET is_cute = $1 WHERE id = $2 OR id = $3"
+  |> query(conn, _, [string("hi there")])
+  |> expect:equal(_, err(IncorrectNumberOfParams({expected = 3, given = 1})))
+
+  "UPDATE cats SET is_cute = $1 WHERE id = $2 OR id = $3"
+  |> query(conn, _, [])
+  |> expect:equal(_, err(IncorrectNumberOfParams({expected = 3, given = 0})))
+
+  "UPDATE cats SET is_cute = NOT is_cute WHERE id = $1"
+  |> query(conn, _, [string("hi there"), bool(True), int(4)])
+  |> expect:equal(_, err(IncorrectNumberOfParams({expected = 1, given = 3})))
 }

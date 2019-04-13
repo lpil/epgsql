@@ -2,13 +2,16 @@
 -compile(no_auto_import).
 -include_lib("eunit/include/eunit.hrl").
 
--export([start_link/1, bool/1, int/1, float/1, null/0, array/1, query/3]).
+-export([start_link/1, string/1, bool/1, int/1, float/1, null/0, array/1, query/3]).
 
 err(E) ->
     {error, E}.
 
 start_link(A) ->
     gleam_epgsql_native:start_link(A).
+
+string(A) ->
+    gleam_epgsql_native:param(A).
 
 bool(A) ->
     gleam_epgsql_native:param(A).
@@ -43,12 +46,13 @@ library_test() ->
                  {ok, [any:from({1, 2, 3, 4})]}),
     expect:equal(query(Conn, <<"SELECT $1::REAL">>, [float(2.5)]),
                  {ok, [any:from({2.5})]}),
-    Error = #{}#{extra => [{file, <<"scan.l">>},
-                           {line, <<"1128">>},
-                           {position, <<"1">>},
-                           {routine, <<"scanner_yyerror">>},
-                           {severity,
-                            <<"ERROR">>}]}#{severity => error}#{message => <<"syntax error at or near \"syntax\"">>}#{codename => atom:create_from_string(<<"syntax_error">>)}#{code => <<"42601">>},
+    Error = {pg_error,
+             #{}#{extra => [{file, <<"scan.l">>},
+                            {line, <<"1128">>},
+                            {position, <<"1">>},
+                            {routine, <<"scanner_yyerror">>},
+                            {severity,
+                             <<"ERROR">>}]}#{severity => error}#{message => <<"syntax error at or near \"syntax\"">>}#{codename => atom:create_from_string(<<"syntax_error">>)}#{code => <<"42601">>}},
     expect:equal(query(Conn, <<"syntax error">>, []), err(Error)),
     expect:equal(query(Conn, <<"SELECT * FROM cats;">>, []), {ok, []}),
     expect:equal(query(Conn,
@@ -86,5 +90,30 @@ library_test() ->
                        []),
                  {ok, [any:from({false})]}),
     expect:equal(query(Conn, <<"SELECT is_cute FROM cats WHERE id = 3">>, []),
-                 {ok, [any:from({false})]}).
+                 {ok, [any:from({false})]}),
+    expect:equal(query(Conn,
+                       <<"UPDATE cats SET is_cute = NOT is_cute WHERE id = 3">>,
+                       [string(<<"hi there">>)]),
+                 err({incorrect_number_of_params,
+                      #{}#{given => 1}#{expected => 0}})),
+    expect:equal(query(Conn,
+                       <<"UPDATE cats SET is_cute = $1 WHERE id = $2">>,
+                       [string(<<"hi there">>)]),
+                 err({incorrect_number_of_params,
+                      #{}#{given => 1}#{expected => 2}})),
+    expect:equal(query(Conn,
+                       <<"UPDATE cats SET is_cute = $1 WHERE id = $2 OR id = $3">>,
+                       [string(<<"hi there">>)]),
+                 err({incorrect_number_of_params,
+                      #{}#{given => 1}#{expected => 3}})),
+    expect:equal(query(Conn,
+                       <<"UPDATE cats SET is_cute = $1 WHERE id = $2 OR id = $3">>,
+                       []),
+                 err({incorrect_number_of_params,
+                      #{}#{given => 0}#{expected => 3}})),
+    expect:equal(query(Conn,
+                       <<"UPDATE cats SET is_cute = NOT is_cute WHERE id = $1">>,
+                       [string(<<"hi there">>), bool(true), int(4)]),
+                 err({incorrect_number_of_params,
+                      #{}#{given => 3}#{expected => 1}})).
 -endif.
