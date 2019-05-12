@@ -1,5 +1,9 @@
 {"1.1.0",
 [{<<"epgsql">>,{pkg,<<"epgsql">>,<<"4.2.1">>},0},
+ {<<"gleam_erlang_process">>,
+  {git,"https://github.com/gleam-lang/gleam_erlang_process",
+       {ref,"cc2ba73481afdca51a4a17306690ba6e6ef20d8f"}},
+  0},
  {<<"gleam_stdlib">>,{pkg,<<"gleam_stdlib">>,<<"0.2.0">>},0}]}.
 [
 {pkg_hash,[
