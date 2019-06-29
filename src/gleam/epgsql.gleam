@@ -1,9 +1,9 @@
-import any
-import atom
-import tuple
-import expect
-import result
-import erlang_process
+import gleam/any
+import gleam/atom
+import gleam/tuple
+import gleam/expect
+import gleam/result
+import gleam/otp/process
 
 pub enum Severity =
   | Debug
@@ -74,7 +74,7 @@ pub enum ConnectionOption =
   | Timeout(Int)
 
 pub external fn start_link(List(ConnectionOption))
-  -> Result(erlang_process:Pid, ConnectError)
+  -> Result(process:Pid, ConnectError)
   = "gleam_epgsql_native" "start_link"
 
 enum Column =
@@ -92,7 +92,7 @@ pub external fn null() -> Parameter = "gleam_epgsql_native" "null"
 
 pub external fn array(List(Parameter)) -> Parameter = "gleam_epgsql_native" "param"
 
-external fn run_query(erlang_process:Pid, String, List(Parameter))
+external fn run_query(process:Pid, String, List(Parameter))
   -> Result({List(Column), List(any:Any)}, QueryError)
   = "gleam_epgsql_native" "run_query"
 
